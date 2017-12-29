@@ -19,12 +19,20 @@ type GameState struct {
 	Name        string
 	HighScore   int
 	Level       int
-	MoveCounter int
-	Pick        []Cell
 }
 
-const (
-	NULL = iota +1 // #
+type LevelState struct {
+	MoveCounter int
+	Pick        []Cell
+	Goal        map[piece]int
+	GoalCounter map[piece]int
+	Level       int
+}
+
+type piece int
+
+const  (
+	NULL piece = iota + 1 // #
 	EMPTY          // _ (means fill with random)
 	DOTRED         // r
 	DOTGREEN       // g
@@ -52,6 +60,7 @@ const  (
 var gopt GameOpt
 var gste GameState
 var glvl []string
+var grid Grid
 
 // End GLOBALS
 
@@ -60,8 +69,7 @@ var glvl []string
 func init() {
 	gste = GameState{Name: "HastyDots", HighScore: 10}
 	gopt = GameOpt{MaxGridHeight: 8, MaxGridWidth: 7}
-	glvl=[]string{"width 4; height 4; grid rrrr bbbb #yy# ____; pick r3 b3 y g p a10; count 10"}
-	fmt.Println(glvl[0])
+	glvl=[]string{"width 4; height 4; grid rrrr bbbb #yy# ____; pick r3 b3 y g p a10; count 10; goal a3"}
 }
 
 // mainloop
@@ -86,8 +94,15 @@ func main() {
 
 }
 
-func LevelLoop (level int) {
+func PrepareLevel(level int) (l *LevelState) {
+    // parse a level string
+    // stuff it into grid variable
+    return
     
+}
+
+func (l *LevelState) LevelLoop() (pe PlayerEvents) {
+    return
 }
 
 func GameLoop () {
@@ -144,4 +159,53 @@ func (g Grid) SetGrid(x, y int, c Cell) {
 		panic("Tried to set an off grid element")
 	}
 	g.cells[x+y*g.Width] = c
+}
+
+func piece2symbol(p piece) (s string) {
+    	m:=map[piece]string{NULL: " ",
+	EMPTY: "_",          // _ (means fill with random)
+	DOTRED: "r",        // r
+	DOTGREEN: "g",       // g
+	DOTBLUE: "b",        // b
+	DOTYELLOW: "y",      // y
+	DOTPURPLE: "p",      // p
+	DOTWHITE: "w",       // w
+	DOTWILDCARD: "*",    // *
+	DOTANCHOR: "a",      // a
+	DOTBOMB: "o",        // o
+	ICE0: "0",
+	ICE1: "1",
+	ICE2: "2",
+        }
+        if _,ok:=m[p]; ok==false { warn(fmt.Sprintf("piece2symbol recieved an unknown piece |%v|\n",p))
+            return }
+        s=m[p]
+        return
+}
+
+func symbol2piece(s string) (p piece) {
+    	m:=map[string]piece{" ": NULL,
+	"_": EMPTY,          // _ (means fill with random)
+	"r": DOTRED,        // r
+	"g": DOTGREEN,       // g
+	"b": DOTBLUE,        // b
+	"y": DOTYELLOW,      // y
+	"p": DOTPURPLE,      // p
+	"w": DOTWHITE,       // w
+	"*": DOTWILDCARD,    // *
+	"a": DOTANCHOR,      // a
+	"o": DOTBOMB,        // o
+	"0": ICE0,
+	"1": ICE1,
+	"2": ICE2,
+        }
+        if _,ok:=m[s]; ok==false { warn(fmt.Sprintf("symbol2piece recieved an unknown symbol |%v|\n",s))
+            return }
+        p=m[s]
+        return
+    
+}
+
+func warn(s string) {
+    fmt.Println("WARNING:"+s)
 }
