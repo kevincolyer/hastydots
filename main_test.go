@@ -44,3 +44,35 @@ func TestPrepareLevel(t *testing.T) {
 	l := PrepareLevel(0)
 	fmt.Println(l)
 }
+
+func TestPlayerInputOk(t *testing.T) {
+	l := PrepareLevel(0)
+	l.Render()
+        var move []Move
+        var err bool
+        var input string
+        input="a"; move,err=PlayerInputOk(input); if err!=false { t.Error("invalid input recognised as false failed with input of:",input)}
+        input="a1"; move,err=PlayerInputOk(input); if err!=false { t.Error("invalid input recognised as false failed with input of:",input)}
+        input="h5l"; move,err=PlayerInputOk(input); if err!=false { t.Error("invalid input recognised as false failed with input of:",input)}
+        input="a1l"; move,err=PlayerInputOk(input); if err!=false { t.Error("invalid input recognised as false failed with input of:",input)}
+        input="a1u"; move,err=PlayerInputOk(input); if err!=false { t.Error("invalid input recognised as false failed with input of:",input)}
+        input="a4d"; move,err=PlayerInputOk(input); if err!=false { t.Error("invalid input recognised as false failed with input of:",input)}
+        input="d4r"; move,err=PlayerInputOk(input); if err!=false { t.Error("invalid input recognised as false failed with input of:",input)}
+        
+        input="a1r"; move,err=PlayerInputOk(input); if len(move)!=2 { t.Error("invalid input recognised as false failed with input of:",input)}
+        input="a1rrrd"; move,err=PlayerInputOk(input); if err!=false { t.Error("invalid input recognised as false failed with input of:",input)}
+        //cant select anchor
+        input="b4r"; move,err=PlayerInputOk(input); if err!=false { t.Error("invalid input recognised as false failed with input of:",input)}
+        input="a4rr"; move,err=PlayerInputOk(input); if err!=false { t.Error("invalid input recognised as false failed with input of:",input)}
+        //cant select null
+        input="a3r"; move,err=PlayerInputOk(input); if err!=false { t.Error("invalid input recognised as false failed with input of:",input)}
+        input="b3rrr"; move,err=PlayerInputOk(input); if err!=false { t.Error("invalid input recognised as false failed with input of:",input)}
+        
+        //wildcard
+        input="a2r"; move,err=PlayerInputOk(input); if err==false { t.Error("invalid input recognised as false failed with input of:",input)}
+        input="a2u"; move,err=PlayerInputOk(input); if err==false { t.Error("invalid input recognised as false failed with input of:",input)}
+        input="a2ru"; move,err=PlayerInputOk(input); if err!=false { t.Error("invalid input recognised as false failed with input of:",input)}
+        input="b3d"; move,err=PlayerInputOk(input); if err!=false { t.Error("invalid input recognised as false failed with input of:",input)}
+        
+        
+}
