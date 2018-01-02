@@ -8,6 +8,8 @@ import "time"
 import "bufio"
 import "os"
 
+var dbg bool // mostly allows printing to stderr for debug() func (a wrapper around fmt.Printf)
+
 type Grid struct {
 	cells  []Piece // starts topleft to top right moving to bottom left bottom right in i=y*width+x
 	Width  int
@@ -46,40 +48,39 @@ type LevelState struct {
 	Seed        int
 }
 
-
 type Move struct {
-    Colour  Piece
-    X   int
-    Y   int
+	Colour Piece
+	X      int
+	Y      int
 }
 
 type Piece int
 
 const (
-	NULL        Piece = iota + 1 // #
-	EMPTY                        // _ (means fill with random)
+	NULL  Piece = iota + 1 // #
+	EMPTY                  // _ (means fill with random)
 
-        DOTBLUE                      // b
-	DOTGREEN                     // g
-	DOTPURPLE                    // p
-	DOTRED                       // r
-	DOTWHITE                     // w
-	DOTYELLOW                    // y
-        DOTWILDCARD                  // *
+	DOTBLUE     // b
+	DOTGREEN    // g
+	DOTPURPLE   // p
+	DOTRED      // r
+	DOTWHITE    // w
+	DOTYELLOW   // y
+	DOTWILDCARD // *
 
-        DOTANCHOR                    // a
-	DOTBOMB                      // o
+	DOTANCHOR // a
+	DOTBOMB   // o
 
-	ICE0        = 32
-	ICE1        = 64
-	ICE2        = 128
+	ICE0 = 32
+	ICE1 = 64
+	ICE2 = 128
 )
 
 type PlayerEvents int
 
 const (
 	PLAYERPLAYING PlayerEvents = iota + 1
-	PLAYERQUITS 
+	PLAYERQUITS
 	PLAYERWINSLEVEL
 	PLAYERLOSESLEVEL
 	PLAYERRESTARTSLEVEL
@@ -104,46 +105,59 @@ func init() {
 
 // mainloop
 func main() {
-	fmt.Println("Welcome to HastyDots")
-//         scanner := bufio.NewScanner(os.Stdin)
-	// prepare display
-	// initialise gamestate
-	// ADVANCE restore a game state
-	// levelloop
+	//
+	dbg = true
+	//
 	// prepare a level
 	l := PrepareLevel(0)
-	fmt.Println("starting level ", l.Level)
-        
+
 	// GameLoop
-        gameloop:=PLAYERPLAYING
-	for gameloop==PLAYERPLAYING {
-            // display level
-            l.Render()
-            //  accept player input
-            input:=UserInput()
-            if input=="quit" { gameloop=PLAYERQUITS 
-                fmt.Println("Player quits - bye!")}
-            if input=="restart" { gameloop=PLAYERRESTARTSLEVEL
-                fmt.Println("Player restarts")}
-            //  validate player input
-            if moves,err:=PlayerInputOk(input); err!=false {
-                // gameloop=PLAYERMAKESILLEGALMOVE 
-                // gameloop=PLAYERMAKESMOVE
-                // gameloop=PLAYERMAKESSQUARE+PLAYERMAKESMOVE
-                fmt.Println(moves)
-                //  loop UpdateGrid until GridNeedsUpdating == False
-                
-                // loop through all goalcounters. Make zero if <0. add and if all = 0 PLAYERWINSLEVEL
-                // gameloop=PLAYERWINS
-                
-                //  decrease turn counter
-                l.MoveCounter--
-                if gameloop!=PLAYERWINSLEVEL && l.MoveCounter==0 { gameloop=PLAYERLOSESLEVEL }
-                gameloop=PLAYERLOSESLEVEL
-            }
-            if gameloop==PLAYERMAKESILLEGALMOVE || gameloop&PLAYERMAKESMOVE==1 { gameloop= PLAYERPLAYING }
-        }   // end gameloop
-        // process gameloop results
+	gameloop := PLAYERPLAYING
+	for gameloop == PLAYERPLAYING {
+		// display level
+		output("Welcome to HastyDots\n")
+		output("Level %v\n", l.Level)
+		output(l.Render())
+		//  accept player input
+		input := UserInput()
+		if input == "quit" {
+			gameloop = PLAYERQUITS
+			output("Player quits - bye!\n")
+		}
+		if input == "restart" {
+			gameloop = PLAYERRESTARTSLEVEL
+			output("Player restarts\n")
+		}
+		//  validate player input
+		if moves, err := PlayerInputOk(input); err != false {
+			// gameloop=PLAYERMAKESILLEGALMOVE
+			// gameloop=PLAYERMAKESMOVE
+			// gameloop=PLAYERMAKESSQUARE+PLAYERMAKESMOVE
+			//output("%v\n", moves)
+			//  loop UpdateGrid until GridNeedsUpdating == False
+			for l.UpdateGrid(moves) == true {
+				if len(moves) > 0 {
+					moves = moves[:0]
+				} // empty moves list as first pass to Updategrid will use them.
+				output(l.Render())
+				// pause a while?
+				// why not!
+			}
+			// loop through all goalcounters. Make zero if <0. add and if all = 0 PLAYERWINSLEVEL
+			// gameloop=PLAYERWINS
+
+			//  decrease turn counter
+			l.MoveCounter--
+			if gameloop != PLAYERWINSLEVEL && l.MoveCounter == 0 {
+				gameloop = PLAYERLOSESLEVEL
+			}
+			gameloop = PLAYERLOSESLEVEL
+		}
+		if gameloop == PLAYERMAKESILLEGALMOVE || gameloop&PLAYERMAKESMOVE == 1 {
+			gameloop = PLAYERPLAYING
+		}
+	} // end gameloop
+	// process gameloop results
 	// GameLoop until player quits or out of moves or acheives goal
 	// if acheives goal then move to next level levelloop
 	// if failed restart levelloop
@@ -158,10 +172,10 @@ func PrepareLevel(level int) (l *LevelState) {
 	if level < 0 || level >= len(glvl) {
 		panic("don't have a level definition for level " + string(level))
 	}
-	s := strings.Replace(glvl[level], "\n", ";", -1) // convenieve=replace all newlines with ;
-	s = strings.Replace(s, ";;", ";", -1)            // convenieve=replace all double ;; with ;
+	s := strings.Replace(glvl[level], "\n", ";", -1) // conveniece=replace all newlines with ;
+	s = strings.Replace(s, ";;", ";", -1)            // conveniece=replace all double ;; with ;
 	commands := strings.Split(s, ";")
-	fmt.Printf("Parsing level %v\n%v commands found\nParsing |%q|\n", level, len(commands), commands)
+	debug("Parsing level %v\n%v commands found\nParsing |%q|\n", level, len(commands), commands)
 
 	// DEFAULTS
 	grid = Grid{}
@@ -169,13 +183,14 @@ func PrepareLevel(level int) (l *LevelState) {
 	grid.Height = gopt.MaxGridHeight
 	l = new(LevelState)
 	l.Level = level
+
 	rand.Seed(0) // default for a level
 	// l.seed is always 0 unless set below
 
 	for i, phrase := range commands {
 		phrase = strings.TrimSpace(phrase)
 		vn := strings.Fields(phrase)
-		fmt.Printf("%v) parsing %q\n", i, vn)
+		debug("%v) parsing %q\n", i, vn)
 		if len(vn) < 2 {
 			panic("Too few fields in command to parse")
 		}
@@ -197,7 +212,7 @@ func PrepareLevel(level int) (l *LevelState) {
 				l.Goal[symbol2piece(s)] = j
 				l.GoalCounter[symbol2piece(s)] = 0
 			}
-			fmt.Printf("goal=%v\n", l.Goal)
+			debug("goal=%v\n", l.Goal)
 
 		} else if vn[0] == "pick" {
 			for i := 1; i < len(vn); i++ {
@@ -208,22 +223,28 @@ func PrepareLevel(level int) (l *LevelState) {
 					j--
 				}
 			}
-			fmt.Printf("pick %v\n", l.Pick)
+			debug("pick %v\n", l.Pick)
 		} else if vn[0] == "grid" {
 			grid.cells = []Piece{}
 			// shift out verb
 			for i := 1; i < len(vn); i++ {
+
 				for _, k := range vn[i] {
 					grid.cells = append(grid.cells, symbol2piece(string(k)))
 				}
 			}
-			fmt.Printf("%#v\n", grid) // to test
+			// if grid data is malformed this might stop a panic
+			for len(grid.cells) < grid.Width*grid.Height {
+				warn("malformed level grid data - padding with empty")
+				grid.cells = append(grid.cells, EMPTY)
+			}
+			debug("%#v\n", grid) // to test
 		} else {
-			fmt.Println("unrecognised verb " + vn[0])
+			warn("level creation data: unrecognised verb " + vn[0])
 		}
 
 	}
-	fmt.Printf("%#v\n", l) // to test
+	debug("%#v\n", l) // to test
 	// fill in any empty parts of the grid with random picks
 	for k, v := range grid.cells {
 		if v == EMPTY {
@@ -259,89 +280,172 @@ func GameLoop() {
 }
 
 // update display
-func (l *LevelState) Render() {
-	fmt.Printf("\nHastyDots\tLevel %v\t\tMoves left %v\tGoal ", l.Level+1, l.MoveCounter)
-		fmt.Println()
+func (l *LevelState) Render() (s string) {
+	s += fmt.Sprintf("\nHastyDots\tLevel %v\t\tMoves left %v\tGoal ", l.Level+1, l.MoveCounter)
+	s += fmt.Sprintln()
 	for k, v := range l.Goal {
-		fmt.Printf("%v=%v  ", piece2symbol(k), v-l.GoalCounter[k])
+		s += fmt.Sprintf("%v=%v  ", piece2symbol(k), v-l.GoalCounter[k])
 	}
-	fmt.Printf("\n     ")
+	s += fmt.Sprintf("\n     ")
 	for i := 0; i < grid.Width; i++ {
-		fmt.Printf("%s ", string(i+97))
+		s += fmt.Sprintf("%s ", string(i+97))
 	}
 	for i := 0; i < grid.Height; i++ {
 
-		fmt.Printf("\n   %v ", string(i+48+1))
+		s += fmt.Sprintf("\n   %v ", string(i+48+1))
 		for j := 0; j < grid.Width; j++ {
-			fmt.Printf("%v ", piece2symbol(grid.GetGrid(j, i)))
+			s += fmt.Sprintf("%v ", piece2symbol(grid.GetGrid(j, i)))
 		}
 
 	}
-		fmt.Println()
-
+	s += fmt.Sprintln()
+	return
 }
 
 // user input - returns nil or valid user input
 func UserInput() (s string) {
-    fmt.Printf("Enter start coordinates then u,d,r,l as many times as you wish. Type quit to leave and restart to begin again\n>")
-    reader := bufio.NewReader(os.Stdin)
-    s, _ = reader.ReadString('\n')
-    s=strings.TrimSpace(s)
-    fmt.Println(s)
-    
-    return
+	fmt.Printf("Enter start coordinates then u,d,r,l as many times as you wish. Type quit to leave and restart to begin again\n>")
+	reader := bufio.NewReader(os.Stdin)
+	s, _ = reader.ReadString('\n')
+	s = strings.TrimSpace(s)
+	debug(s)
+
+	return
 }
 
-
 func PlayerInputOk(input string) (moves []Move, err bool) {
-    err=false // false  until we validate a correct input
-    if len(input)<3 { fmt.Println("input too short - need two dots!",input); return } // have to have at least coord and a direction
-    x:=int(input[0])-97 // a b
-    y:=int(input[1])-49
-    if grid.OnGrid(x,y)==false { fmt.Println("not on grid",input);return }
-    fmt.Printf("x=%v,y=%v\n",x,y)
-    pc:=grid.GetGrid(x,y)
-    rawpc:=pc&(ICE0-1)
-    fmt.Println(rawpc)
-    if rawpc<DOTBLUE || rawpc > DOTWILDCARD {  fmt.Println("choice bad",input) ; return }
-    fmt.Println("choice ok",input)
-    chosencolour:=rawpc
-    // u=117 d=100 l=108 r=114
-    moves=append(moves,Move{X:y,Y:y,Colour:pc})
-    i:=0
-    for j:=2;j<len(input);j++ {
-        i++
-        ascii:=int(input[j])
-        if ascii==117 { y--
-            
-        } else if ascii==100 { y++
-            
-        } else if ascii==108 { x--
-            
-        } else if ascii==114 { x++
-            
-        } else { fmt.Println("unknown command ",input[i]); return }
-        if grid.OnGrid(x,y)==false { fmt.Println("not on grod",input);return }
-        pc=grid.GetGrid(x,y)
-        rawpc=pc&(ICE0-1)
-        if rawpc<DOTBLUE || rawpc > DOTWILDCARD {  fmt.Println("not a choosable dot",input) ; return }
-        fmt.Printf("chosencolour=%v,rawpc=%v\n",chosencolour,rawpc)
-        if chosencolour==DOTWILDCARD && rawpc != DOTWILDCARD { chosencolour = rawpc}
-        if chosencolour!=rawpc { fmt.Println("not of same colour",input); return }
-        moves=append(moves,Move{X:x,Y:y,Colour:pc})
-    }
-    err=true
-    moves[0].Colour=chosencolour // first colour indicates all colours of range  as a valid range is only one colour
-    fmt.Printf("%v:all ok: moves=%v\n",input,moves);
-    return 
+	err = false // false  until we validate a correct input
+	if len(input) < 3 {
+		debug("input too short - need two dots! %v \n", input)
+		return
+	} // have to have at least coord and a direction
+	x := int(input[0]) - 97 // a b
+	y := int(input[1]) - 49
+	if grid.OnGrid(x, y) == false {
+		debug("not on grid %v \n", input)
+		return
+	}
+	debug("x=%v,y=%v\n", x, y)
+	pc := grid.GetGrid(x, y)
+	rawpc := pc & (ICE0 - 1)
+	debug("%v\n", rawpc)
+	if rawpc < DOTBLUE || rawpc > DOTWILDCARD {
+		debug("choice bad %v \n", input)
+		return
+	}
+	debug("choice ok %v\n", input)
+	chosencolour := rawpc
+	// u=117 d=100 l=108 r=114
+	moves = append(moves, Move{X: y, Y: y, Colour: pc})
+	i := 0
+	for j := 2; j < len(input); j++ {
+		i++
+		ascii := int(input[j])
+		if ascii == 117 {
+			y--
+
+		} else if ascii == 100 {
+			y++
+
+		} else if ascii == 108 {
+			x--
+
+		} else if ascii == 114 {
+			x++
+
+		} else {
+			debug("unknown command %v\n", input[i])
+			return
+		}
+		if grid.OnGrid(x, y) == false {
+			debug("not on grid %v\n", input)
+			return
+		}
+		pc = grid.GetGrid(x, y)
+		rawpc = pc & (ICE0 - 1)
+		if rawpc < DOTBLUE || rawpc > DOTWILDCARD {
+			debug("not a choosable dot %v \n", input)
+			return
+		}
+		debug("chosencolour=%v,rawpc=%v\n", chosencolour, rawpc)
+		if chosencolour == DOTWILDCARD && rawpc != DOTWILDCARD {
+			chosencolour = rawpc
+		}
+		if chosencolour != rawpc {
+			debug("not of same colour %v \n", input)
+			return
+		}
+		moves = append(moves, Move{X: x, Y: y, Colour: pc})
+	}
+	err = true
+	moves[0].Colour = chosencolour // first colour indicates all colours of range  as a valid range is only one colour
+	debug("%v:all ok: moves=%v\n", input, moves)
+	return
 }
 
 func SetupGrid() {
 
 }
 
-func UpdateGrid() {
+func (l *LevelState) UpdateGrid(m []Move) bool {
+	// if there are player moves make them
+	if len(m) > 0 {
+		// square detection
+		//square:=detectSquare(m) // returns index of start of square or nil
 
+		for i := 0; i < len(m); i++ {
+			p := grid.GetGrid(m[i].X, m[i].Y)
+			if _, ok := l.GoalCounter[p]; ok && p != DOTWILDCARD {
+				l.GoalCounter[p]++
+			}
+			grid.SetGrid(m[i].X, m[i].Y, EMPTY)
+			// TODO if there is a space next to a bomb - decrement bomb count
+
+		}
+		// if square then scan and remove all colour and add a bomb in larger squares
+		//scanner := makeGridScanner(m[0].Colour) // needs to return x and y
+		// increment GoalCounter if present
+		// empty move list (on return)
+		return true
+	}
+
+	// scan and if empty spaces drop pieces down. fill with new
+	// return true
+
+	// scan and if bomb at zero explode, decrementing bombs
+	// return true
+
+	// scan and if anchors at bottom descend the colomn
+	// increment GoalCounter if present
+
+	// TODO ladybirds
+	// TODO ICE
+	// TODO firesquares
+	// TODO gems
+	// TODO disapearing blocks, triangles, teleports, moves,
+
+	// is there an allowable move for the player - if not shuffle!
+	// return true
+
+	return false // nothing to do so grid is stable! Phew!
+}
+
+func makeGridScanner(p Piece) func() (int, int) {
+	x := 0
+	y := 0
+	return func() (int, int) {
+		for x < grid.Width {
+			for y < grid.Height {
+				y++
+				if grid.GetGrid(x, y-1) == p {
+					return x, y - 1
+				}
+
+			}
+			x++
+		}
+		return -1, -1
+	}
 }
 
 func GridNeedsUpdating() {
@@ -432,4 +536,16 @@ func symbol2piece(s string) (p Piece) {
 
 func warn(s string) {
 	fmt.Println("WARNING:" + s)
+}
+
+func debug(s string, args ...interface{}) {
+	if dbg == true {
+		fmt.Printf("Debug:"+s, args...)
+	}
+	return
+}
+
+func output(s string, args ...interface{}) {
+	fmt.Printf(s, args...)
+	return
 }
