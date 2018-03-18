@@ -98,11 +98,11 @@ func PrepareLevel(level int) (l *LevelState) {
 	// fill in any empty parts of the grid with random picks
 	for k, v := range grid.cells {
 		if v == EMPTY {
-                        pc:=l.RandPick()
-                        // don't fill empty cells with anchors on bottom row...
-			for pc == DOTANCHOR && k>=grid.Width*(grid.Height-1) {
-                            pc=l.RandPick()
-                        } 
+			pc := l.RandPick()
+			// don't fill empty cells with anchors on bottom row...
+			for pc == DOTANCHOR && k >= grid.Width*(grid.Height-1) {
+				pc = l.RandPick()
+			}
 			grid.cells[k] = pc
 		}
 	}
@@ -116,7 +116,11 @@ func PrepareLevel(level int) (l *LevelState) {
 func (l *LevelState) Render() (s string) {
 	s += fmt.Sprintf("\nHastyDots\tLevel %v\t\tMoves left %v\nGoal ", l.Level+1, l.MoveCounter)
 	for k, v := range l.Goal {
-		s += fmt.Sprintf("%v=%v  ", piece2symbol(k), v-l.GoalCounter[k])
+		g := v - l.GoalCounter[k]
+		if g < 0 {
+			g = 0
+		}
+		s += fmt.Sprintf("%v=%v  ", piece2symbol(k), g)
 	}
 	s += fmt.Sprintf("\n     ")
 	for i := 0; i < grid.Width; i++ {
@@ -144,9 +148,9 @@ func (l *LevelState) UpdateGrid(m []Move) bool {
 	if len(m) > 0 {
 		// square detection
 
-		for i,_ := range(m) {
+		for i, _ := range m {
 			pc := grid.GetGrid(m[i].X, m[i].Y)
-                        // update goal
+			// update goal
 			if _, ok := l.GoalCounter[pc]; ok && pc != DOTWILDCARD {
 				l.GoalCounter[pc]++
 			}
@@ -155,17 +159,17 @@ func (l *LevelState) UpdateGrid(m []Move) bool {
 
 		}
 		// if square then scan and remove all colour and add a bomb in larger squares
-		pc:=grid.detectSquare(m) // returns PC or colour of start of square or NULL
-		if pc!=NULL {
-                    scan := makeGridScanner(pc) // for now TODO
-                    for x, y, done := scan(); done == false; x, y, done = scan() {// needs to return x and y
-                        grid.SetGrid(x,y,EMPTY)
-                        // update goal
-                        l.GoalCounter[p]++
+		pc := grid.detectSquare(m) // returns PC or colour of start of square or NULL
+		if pc != NULL {
+			debug("square detected!")
+			// currently only 2x2squares TODO 3x3 with bomb!
+			scan := makeGridScanner(pc)
+			for x, y, done := scan(); done == false; x, y, done = scan() { // needs to return x and y
+				grid.SetGrid(x, y, EMPTY)
+				// update goal
+				l.GoalCounter[pc]++
 			}
-                    }
-                }
-                
+		}
 		// empty move list (on return)
 		return true
 	}
@@ -179,37 +183,39 @@ func (l *LevelState) UpdateGrid(m []Move) bool {
 	// if nothing then fill downwards
 	// return true
 	scan := makeGridScanner(EMPTY)
-        finished:=false
+	finished := false
 	for x, y, done := scan(); done == false; x, y, done = scan() {
-                fmt.Printf("found empty %v,%v\n",x,y)
+		fmt.Printf("found empty %v,%v\n", x, y)
 		y2 := y - 1
-		y3:=y
-		// move down 
+		y3 := y
+		// move down
 		// TODO skip Nulls!
 		for grid.OnGrid(x, y2) {
-                        if grid.GetGrid(x,y2)==NULL || grid.GetGrid(x,y2)==EMPTY { 
-                            y2-- 
-                            continue
-                        }
+			if grid.GetGrid(x, y2) == NULL || grid.GetGrid(x, y2) == EMPTY {
+				y2--
+				continue
+			}
 			grid.SetGrid(x, y3, grid.GetGrid(x, y2)) // move everything one down
-                        grid.SetGrid(x,y2,EMPTY)
-                        y3--
-                        for grid.GetGrid(x,y3)==NULL {
-                            y3--
-                        } 
-                        y2--
+			grid.SetGrid(x, y2, EMPTY)
+			y3--
+			for grid.GetGrid(x, y3) == NULL {
+				y3--
+			}
+			y2--
 		}
-		
+
 		// fill down
 		for y4 := 0; y4 <= y; y4++ {
-                        if grid.GetGrid(x,y4)==EMPTY {
-			grid.SetGrid(x, y4, l.RandPick()) // todo could have anchors on last row here is whole colomn empty
-                        }
+			if grid.GetGrid(x, y4) == EMPTY {
+				grid.SetGrid(x, y4, l.RandPick()) // todo could have anchors on last row here is whole colomn empty
+			}
 		}
-		finished=true // have done some work!
+		finished = true // have done some work!
 	}
-	if finished { return true }
-	
+	if finished {
+		return true
+	}
+
 	// scan and if bomb at zero explode, decrementing bombs
 	// return true
 
@@ -217,20 +223,21 @@ func (l *LevelState) UpdateGrid(m []Move) bool {
 	// -------
 	// scan and if anchors at bottom descend the colomn
 	// increment GoalCounter if present
-	
-	bottom:=grid.Height-1
-	for x:=0; x<grid.Width;x++ {
-            if grid.GetGrid(x,bottom)==DOTANCHOR {
-                finished=true
-                grid.SetGrid(x,bottom,EMPTY)
-                if _, ok := l.GoalCounter[DOTANCHOR]; ok  {
-				l.GoalCounter[DOTANCHOR]++
-                }
-            }
-        }
-	if finished { return true }
 
-	
+	bottom := grid.Height - 1
+	for x := 0; x < grid.Width; x++ {
+		if grid.GetGrid(x, bottom) == DOTANCHOR {
+			finished = true
+			grid.SetGrid(x, bottom, EMPTY)
+			if _, ok := l.GoalCounter[DOTANCHOR]; ok {
+				l.GoalCounter[DOTANCHOR]++
+			}
+		}
+	}
+	if finished {
+		return true
+	}
+
 	// TODO ladybirds
 	// TODO ICE
 	// TODO firesquares
@@ -300,4 +307,3 @@ func (l *LevelState) RandPick() Piece {
 func Shuffle() {
 
 }
-

@@ -29,31 +29,31 @@ const (
 	DOTBOMB   // o
 
 	// we mask off 0xF here...
-	
+
 	ICE0 = 32
 	ICE1 = 64
 	ICE2 = 128
 )
 
 func piece2symbol(p Piece) (s string) {
-        red := color.New(color.FgRed).SprintFunc()
-        green := color.New(color.FgGreen).SprintFunc()
-        blue := color.New(color.FgBlue).SprintFunc()
-        yellow := color.New(color.FgHiYellow).SprintFunc()
-        purple := color.New(color.FgMagenta).SprintFunc()
-        white := color.New(color.FgHiWhite).SprintFunc()
+	red := color.New(color.FgRed).SprintFunc()
+	green := color.New(color.FgGreen).SprintFunc()
+	blue := color.New(color.FgBlue).SprintFunc()
+	yellow := color.New(color.FgHiYellow).SprintFunc()
+	purple := color.New(color.FgMagenta).SprintFunc()
+	white := color.New(color.FgHiWhite).SprintFunc()
 	m := map[Piece]string{
-                NULL:        "█",
-		EMPTY:       "_", // _ (means fill with random)
-		DOTRED:      fmt.Sprintf("%v",red("@")), // r
-		DOTGREEN:    fmt.Sprintf("%v",green("@")), // g
-		DOTBLUE:     fmt.Sprintf("%v",blue("@")), // b
-		DOTYELLOW:   fmt.Sprintf("%v",yellow("@")), // y
-		DOTPURPLE:   fmt.Sprintf("%v",purple("@")), // p
-		DOTWHITE:    fmt.Sprintf("%v",white("@")), // w
-		DOTWILDCARD: "*", // *
-		DOTANCHOR:   "⚓", // a
-		DOTBOMB:     "💣", // o
+		NULL:        "█",
+		EMPTY:       "_",                            // _ (means fill with random)
+		DOTRED:      fmt.Sprintf("%v", red("●")),    // r
+		DOTGREEN:    fmt.Sprintf("%v", green("●")),  // g
+		DOTBLUE:     fmt.Sprintf("%v", blue("●")),   // b
+		DOTYELLOW:   fmt.Sprintf("%v", yellow("●")), // y
+		DOTPURPLE:   fmt.Sprintf("%v", purple("●")), // p
+		DOTWHITE:    fmt.Sprintf("%v", white("●")),  // w
+		DOTWILDCARD: "◯",                            // *
+		DOTANCHOR:   "⚓",                            // a
+		DOTBOMB:     "💣",                            // o
 		ICE0:        "0",
 		ICE1:        "1",
 		ICE2:        "2",

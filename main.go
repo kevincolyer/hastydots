@@ -31,6 +31,7 @@ const (
 	PLAYERPLAYING PlayerEvents = iota + 1
 	PLAYERQUITS
 	PLAYERWINSLEVEL
+	PLAYERWINSGAME
 	PLAYERLOSESLEVEL
 	PLAYERRESTARTSLEVEL
 	PLAYERMAKESMOVE
@@ -50,11 +51,10 @@ func init() {
 	gste = GameState{Name: "HastyDots", HighScore: 10}
 	gopt = GameOpt{MaxGridHeight: 8, MaxGridWidth: 7}
 	glvl = []string{
-            "width 4; height 4; grid rrrr *bbb #*y# ____; pick r3 b3 y g p a10; moves 10; goal a3; seed 1",
-            
-            "width 8; height 8; grid ________ #______# ________ #______# ___##___ #__##__# ________ #______# ________ #______#; pick r4 b4 g4 p4 w4 g4 * a; moves 20; goal r10 b10 g10 a5;seed 2 ",
-            
-        }
+		"width 4; height 4; grid rrrr *bbb #*y# ____; pick r3 b3 y g p a10; moves 10; goal a3; seed 1",
+		"width 8; height 8; grid ________ ________ ________ ________ ________ ________ ________ ________ ; pick r4 b4 g4 ; moves 10; goal r10 b10 g10 ;seed 2 ",
+		"width 8; height 8; grid ________ #______# ________ #______# ___##___ #__##__# ________ #______# ________ #______#; pick r4 b4 g4 p4 w4 g4 * a; moves 20; goal r10 b10 g10 a5;seed 2 ",
+	}
 }
 
 // mainloop
@@ -64,7 +64,8 @@ func main() {
 	//
 	// prepare a level
 	// l := PrepareLevel(0)  // level 0 is test level
-        l := PrepareLevel(1)
+	Level := 1
+	l := PrepareLevel(Level)
 	// GameLoop
 	gameloop := PLAYERPLAYING
 	for gameloop == PLAYERPLAYING {
@@ -89,16 +90,27 @@ func main() {
 			// gameloop=PLAYERMAKESSQUARE+PLAYERMAKESMOVE
 			//output("%v\n", moves)
 			//  loop UpdateGrid until GridNeedsUpdating == False
-			for l.UpdateGrid(moves) == true{
+			for l.UpdateGrid(moves) == true {
 				if len(moves) > 0 {
 					moves = []Move{}
 				} // empty moves list as first pass to Updategrid will use them.
-				 output(l.Render())
+				output(l.Render())
 
 				// pause a while?
 				// why not!
 			}
 			// loop through all goalcounters. Make zero if <0. add and if all = 0 PLAYERWINSLEVEL
+			total := 0
+			for k, v := range l.Goal {
+				g := v - l.GoalCounter[k]
+				if g < 0 {
+					g = 0
+				}
+				total += g
+			}
+			if total == 0 {
+				gameloop = PLAYERWINSLEVEL
+			}
 			// gameloop=PLAYERWINS
 
 			//  decrease turn counter
@@ -106,10 +118,24 @@ func main() {
 			if gameloop != PLAYERWINSLEVEL && l.MoveCounter == 0 {
 				gameloop = PLAYERLOSESLEVEL
 			}
-			
+
 		}
 		if gameloop == PLAYERMAKESILLEGALMOVE || gameloop&PLAYERMAKESMOVE == 1 {
 			gameloop = PLAYERPLAYING
+		}
+		if gameloop == PLAYERWINSLEVEL {
+			fmt.Println("Well done! You won that level!")
+			Level++
+			if Level > len(glvl) {
+				fmt.Println("Well done! You have won the ENTIRE GAME!!!")
+				gameloop = PLAYERWINSGAME
+				continue
+			}
+			l = PrepareLevel(Level)
+			gameloop = PLAYERPLAYING
+		}
+		if gameloop == PLAYERLOSESLEVEL {
+			fmt.Println("Boo! You lost. Try again!")
 		}
 	} // end gameloop
 	// process gameloop results
@@ -164,8 +190,8 @@ func PlayerInputOk(input string) (moves []Move, err bool) {
 	// u=117 d=100 l=108 r=114
 
 	moves = append(moves, Move{X: x, Y: y, Colour: pc})
-        debug("adding move x,y,colour %v,%v,%v\n",x,y,pc)
-		
+	debug("adding move x,y,colour %v,%v,%v\n", x, y, pc)
+
 	i := 0
 	for j := 2; j < len(input); j++ {
 		i++
@@ -187,7 +213,7 @@ func PlayerInputOk(input string) (moves []Move, err bool) {
 			return
 		}
 		pc = grid.GetGrid(x, y)
-                
+
 		rawpc = pc & 0xf // mask off lower bits of piece
 		if rawpc < DOTBLUE || rawpc > DOTWILDCARD {
 			debug("not a choosable dot %v \n", input)
@@ -197,11 +223,11 @@ func PlayerInputOk(input string) (moves []Move, err bool) {
 		if chosencolour == DOTWILDCARD && rawpc != DOTWILDCARD {
 			chosencolour = rawpc
 		}
-		if  rawpc != chosencolour && rawpc!=DOTWILDCARD  {
+		if rawpc != chosencolour && rawpc != DOTWILDCARD {
 			debug("not of same colour %v \n", input)
 			return
 		}
-		debug("adding move x,y,colour %v,%v,%v\n",x,y,pc)
+		debug("adding move x,y,colour %v,%v,%v\n", x, y, pc)
 		moves = append(moves, Move{X: x, Y: y, Colour: pc})
 	}
 	err = true
