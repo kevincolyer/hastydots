@@ -143,6 +143,10 @@ func SetupGrid() {
 }
 
 func (l *LevelState) UpdateGrid(m []Move) bool {
+
+	// start  by doing players actions.
+	// then do the chain reactions and secondary and then tertiaries until all is quiet again.
+
 	// PLAYER MOVES
 	// ------------
 	if len(m) > 0 {
@@ -238,8 +242,8 @@ func (l *LevelState) UpdateGrid(m []Move) bool {
 		return true
 	}
 
-	// TODO ladybirds
 	// TODO ICE
+	// TODO ladybirds
 	// TODO firesquares
 	// TODO gems
 	// TODO disapearing blocks, triangles, teleports, moves,
