@@ -25,10 +25,14 @@ func PrepareLevel(level int) (l *LevelState) {
 	s := strings.Replace(glvl[level], "\n", ";", -1) // conveniece=replace all newlines with ;
 	s = strings.Replace(s, ";;", ";", -1)            // conveniece=replace all double ;; with ;
 	commands := strings.Split(s, ";")
-	debug("Parsing level %v\n%v commands found\nParsing |%q|\n", level, len(commands), commands)
+	debug("Parsing level %v. Commands found %v. Parsing |%q|\n", level, len(commands), commands)
 
 	// DEFAULTS
 	grid = Grid{}
+	oldmarks = Grid{}
+	marks = Grid{}
+	ice = Grid{}
+
 	grid.Width = gopt.MaxGridWidth
 	grid.Height = gopt.MaxGridHeight
 	l = new(LevelState)
@@ -75,18 +79,18 @@ func PrepareLevel(level int) (l *LevelState) {
 			}
 			debug("pick %v\n", l.Pick)
 		} else if vn[0] == "grid" {
-			grid.cells = []Piece{}
+			grid.Cells = []Piece{}
 			// shift out verb
 			for i := 1; i < len(vn); i++ {
 
 				for _, k := range vn[i] {
-					grid.cells = append(grid.cells, symbol2piece(string(k)))
+					grid.Cells = append(grid.Cells, symbol2piece(string(k)))
 				}
 			}
 			// if grid data is malformed this might stop a panic
-			for len(grid.cells) < grid.Width*grid.Height {
+			for len(grid.Cells) < grid.Width*grid.Height {
 				warn("malformed level grid data - padding with empty")
-				grid.cells = append(grid.cells, EMPTY)
+				grid.Cells = append(grid.Cells, EMPTY)
 			}
 			debug("%#v\n", grid) // to test
 		} else {
@@ -95,19 +99,33 @@ func PrepareLevel(level int) (l *LevelState) {
 
 	}
 	debug("%#v\n", l) // to test
+
 	// fill in any empty parts of the grid with random picks
-	for k, v := range grid.cells {
+	for k, v := range grid.Cells {
 		if v == EMPTY {
 			pc := l.RandPick()
 			// don't fill empty cells with anchors on bottom row...
 			for pc == DOTANCHOR && k >= grid.Width*(grid.Height-1) {
 				pc = l.RandPick()
 			}
-			grid.cells[k] = pc
+			grid.Cells[k] = pc
 		}
 	}
+
 	// refresh random seed for rest of gameplay
 	rand.Seed(time.Now().UTC().UnixNano())
+
+	// size and clear ice and marks
+	debug("resizing grids\n")
+	marks.Size(grid.Width, grid.Height)
+	oldmarks.Size(grid.Width, grid.Height)
+	ice.Size(grid.Width, grid.Height)
+
+	debug("clearing grids\n")
+	marks.Clear()
+	oldmarks.Clear()
+	ice.Clear()
+
 	return
 
 }
@@ -149,9 +167,11 @@ func (l *LevelState) UpdateGrid(m []Move) bool {
 
 	// PLAYER MOVES
 	// ------------
+	debug(fmt.Sprintf("Marks grid=%v\n", marks))
 	if len(m) > 0 {
-		// square detection
-
+		debug("Player moves\n")
+		marks.Clear() // prepare for player to influence the field
+		// loop over dots that the player marks to remove
 		for i, _ := range m {
 			pc := grid.GetGrid(m[i].X, m[i].Y)
 			// update goal
@@ -159,24 +179,48 @@ func (l *LevelState) UpdateGrid(m []Move) bool {
 				l.GoalCounter[pc]++
 			}
 			grid.SetGrid(m[i].X, m[i].Y, EMPTY)
-			// TODO if there is a space next to a bomb - decrement bomb count
-
+			marks.SetNEWS(m[i].X, m[i].Y, WOBBLE)
 		}
-		// if square then scan and remove all colour and add a bomb in larger squares
+		if marks.IsAllNull() == true {
+			//             fmt.Printf("marks=%v \n",marks)
+			panic("Error should have a mark in there! ")
+		}
+
+		// square detection
 		pc := grid.detectSquare(m) // returns PC or colour of start of square or NULL
 		if pc != NULL {
-			debug("square detected!")
+			// if square then scan and remove all colour and add a bomb in larger squares
+			debug("square detected!\n")
 			// currently only 2x2squares TODO 3x3 with bomb!
-			scan := makeGridScanner(pc)
+			scan := grid.makeGridScanner(pc, false)
 			for x, y, done := scan(); done == false; x, y, done = scan() { // needs to return x and y
 				grid.SetGrid(x, y, EMPTY)
+				marks.SetNEWS(x, y, WOBBLE)
 				// update goal
 				l.GoalCounter[pc]++
 			}
 		}
-		// empty move list (on return)
+
+		// see if the removal of dots has triggered anything else off
+		if marks.IsAllNull() == false {
+			debug("dotbomb shift 1\n")
+			scan := marks.makeGridScanner(WOBBLE, false)
+			for x, y, done := scan(); done == false; x, y, done = scan() {
+				// if a piece changes when wobbled then change it (function does nothing if passed a non-wobbler)
+				grid.SetGrid(x, y, grid.GetGrid(x, y).Shift())
+				// if a bomb or other explody thing then set a mark for explode here...
+				if grid.GetGrid(x, y) == DOTBOMBBOOM {
+					marks.SetGrid(x, y, EXPLODE)
+					//marks.SetAllNeighbours(x,y,EXPLODE)
+				} else {
+					// clear the mark as wobbling is done
+					marks.SetGrid(x, y, NULL)
+				}
+			}
+		}
+		// move list emptied on return
 		return true
-	}
+	} // End of Players moves
 
 	// DROP DOWN
 	// ---------
@@ -186,10 +230,11 @@ func (l *LevelState) UpdateGrid(m []Move) bool {
 	// Then scan down and fill with new
 	// if nothing then fill downwards
 	// return true
-	scan := makeGridScanner(EMPTY)
+	debug("Dropping down dots\n")
+	scan := grid.makeGridScanner(EMPTY, false)
 	finished := false
 	for x, y, done := scan(); done == false; x, y, done = scan() {
-		fmt.Printf("found empty %v,%v\n", x, y)
+		// fmt.Printf("found empty %v,%v\n", x, y)
 		y2 := y - 1
 		y3 := y
 		// move down
@@ -199,9 +244,12 @@ func (l *LevelState) UpdateGrid(m []Move) bool {
 				y2--
 				continue
 			}
-			grid.SetGrid(x, y3, grid.GetGrid(x, y2)) // move everything one down
+			grid.SetGrid(x, y3, grid.GetGrid(x, y2))   // move everything one down
+			marks.SetGrid(x, y3, marks.GetGrid(x, y2)) // move everything one down
 			grid.SetGrid(x, y2, EMPTY)
+			marks.SetGrid(x, y2, NULL)
 			y3--
+			// climb grid
 			for grid.GetGrid(x, y3) == NULL {
 				y3--
 			}
@@ -228,6 +276,7 @@ func (l *LevelState) UpdateGrid(m []Move) bool {
 	// scan and if anchors at bottom descend the colomn
 	// increment GoalCounter if present
 
+	debug("Anchors\n")
 	bottom := grid.Height - 1
 	for x := 0; x < grid.Width; x++ {
 		if grid.GetGrid(x, bottom) == DOTANCHOR {
@@ -242,6 +291,77 @@ func (l *LevelState) UpdateGrid(m []Move) bool {
 		return true
 	}
 
+	// BOMBS and EXPLOSIONS
+	// -----
+	oldmarks.Copy(marks)
+	marks.Clear()
+	debug("Explosions\n")
+	// true means invert search i.e. look for absence of null.
+	scan = oldmarks.makeGridScanner(NULL, true)
+	for x, y, done := scan(); done == false; x, y, done = scan() {
+		pc := grid.GetGrid(x, y)
+		finished = true
+		debug(fmt.Sprintf("scanning for wobble or explodes: x,y =%v,%v pc=%v oldmarks=%v\n", x, y, pc, oldmarks.GetGrid(x, y)))
+
+		// WOBBLE OR EXPLODE
+		// if bomb then shift to next state in case of wobble or explode
+		if pc >= DOTBOMB3 && pc <= DOTBOMB1 {
+			debug("shift bombs 2\n")
+			grid.SetGrid(x, y, pc.Shift())
+			if grid.GetGrid(x, y) == DOTBOMBBOOM {
+				// start chain reaction
+				marks.SetGrid(x, y, EXPLODE)
+				//marks.SetAllNeighbours(x,y,EXPLODE)
+			}
+			continue
+		}
+
+		// JUST WOBBLES
+		if oldmarks.GetGrid(x, y) == WOBBLE {
+			debug("found a wobble\n")
+			continue
+		}
+
+		// JUST EXPLODES
+		// for each cell to explode exploded count, remove, and wobble neighbours
+		if oldmarks.GetGrid(x, y) == EXPLODE {
+			debug("exploded by bomb - removing\n")
+			// if bomb found, count it, clear grid, mark neighbours to explode
+			if pc == DOTBOMBBOOM {
+				debug("explode bomb\n")
+				if _, ok := l.GoalCounter[DOTBOMB3]; ok {
+					l.GoalCounter[DOTBOMB3]++
+				}
+				grid.SetGrid(x, y, EMPTY)
+			}
+			// kill all dots etc.
+			for _, o := range offsets {
+				dx := x + o.x
+				dy := y + o.y
+				// on board?
+				if grid.OnGrid(dx, dy) == false {
+					continue
+				}
+				//                     debug("in loop looking to kill dots\n")
+
+				j := grid.GetGrid(dx, dy)
+				// if a dot or anchor kill it
+				if j >= DOTBLUE && j <= DOTANCHOR {
+					if _, ok := l.GoalCounter[j]; ok {
+						l.GoalCounter[j]++
+					}
+					grid.SetGrid(dx, dy, EMPTY)
+					marks.SetAllNeighbours(dx, dy, WOBBLE)
+				} else {
+					// otherwise wobble it...
+					marks.SetGrid(dx, dy, WOBBLE)
+				}
+			}
+		}
+	} // end grid scan loop
+	if finished {
+		return true
+	}
 	// TODO ICE
 	// TODO ladybirds
 	// TODO firesquares
@@ -254,49 +374,7 @@ func (l *LevelState) UpdateGrid(m []Move) bool {
 	return false // nothing to do so grid is stable! Phew!
 }
 
-// returns a closure that scans right to left from bottom to top!
-// because counting to -1 makes more sense than counting away from -1
-func makeGridScanner(p Piece) func() (int, int, bool) {
-	x := grid.Width - 1
-	y := grid.Height
-	done := false
-	//fmt.Println("made new iterator looking for p starting x and y ", p, x, y-1)
-	return func() (int, int, bool) {
-		if done {
-			debug("iterator exhausted - stop calling me!")
-			return -1, -1, done
-		}
-		// 		fmt.Printf("it x,y=%v,%v\n",x,y)
-		for x >= 0 {
-			// check here for col exhaust and then row exhaust. both means iterator is exhausted
-			for y >= 0 {
-
-				if y == 0 {
-					y = grid.Height
-					x--
-					// 					fmt.Printf("y was ==0 so now %v,%v\n",x,y)
-					if x == -1 {
-						y = -1
-						done = true
-						// 						fmt.Printf(" iterator exhuasted 2 %v,%v\n", x, y)
-						return x, y, done
-					}
-				}
-				y--
-				if grid.GetGrid(x, y) == p {
-					//                                         fmt.Println("got a dot!", x, y)
-					return x, y, done
-				}
-			}
-		}
-		// 		fmt.Printf(" iterator exhuasted 1 %v,%v", x, y)
-		panic("should not reach this!")
-		// 		x = -1; y = -1 ; done=true ;return x, y, done
-	}
-}
-
 func GridNeedsUpdating() {
-
 }
 
 // helper functions (may not need)

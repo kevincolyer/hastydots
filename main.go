@@ -5,7 +5,8 @@ import "strings"
 
 // import "strconv"
 // import "math/rand"
-// import "time"
+import "flag"
+import "time"
 import "bufio"
 import "os"
 
@@ -44,6 +45,10 @@ var gopt GameOpt
 var gste GameState
 var glvl []string
 var grid Grid
+var ice Grid
+var marks Grid
+var oldmarks Grid
+var offsets []GridOffset
 
 // End GLOBALS
 
@@ -52,8 +57,13 @@ func init() {
 	gopt = GameOpt{MaxGridHeight: 8, MaxGridWidth: 7}
 	glvl = []string{
 		"width 4; height 4; grid rrrr *bbb #*y# ____; pick r3 b3 y g p a10; moves 10; goal a3; seed 1",
-		"width 8; height 8; grid ________ ________ ________ ________ ________ ________ ________ ________ ; pick r4 b4 g4 ; moves 10; goal r10 b10 g10 ;seed 2 ",
-		"width 8; height 8; grid ________ #______# ________ #______# ___##___ #__##__# ________ #______# ________ #______#; pick r4 b4 g4 p4 w4 g4 * a; moves 20; goal r10 b10 g10 a5;seed 2 ",
+		"width 8; height 8; grid ________ ________ ________ ________ ________ ________ ________ ________ ; pick r4 b4 g4 o; moves 10; goal r10 b10 g10 ;seed 2 ",
+		"width 8; height 8; grid ________ #______# ________ #______# ___##___ #__##__# ________ #______# ________ #______#; pick r4 b4 g4 p4 w4 g4 o3 a2; moves 20; goal r10 b10 g10 a5;seed 2 ",
+	}
+	offsets = []GridOffset{
+		GridOffset{-1, -1}, GridOffset{0, -1}, GridOffset{1, -1},
+		GridOffset{-1, 0}, GridOffset{1, 0},
+		GridOffset{-1, 1}, GridOffset{0, 1}, GridOffset{1, 1},
 	}
 }
 
@@ -61,10 +71,13 @@ func init() {
 func main() {
 	//
 	dbg = true
+	Level := 1
+	flag.IntVar(&Level, "level", 1, "level to start on")
+	flag.Parse()
+
 	//
 	// prepare a level
 	// l := PrepareLevel(0)  // level 0 is test level
-	Level := 1
 	l := PrepareLevel(Level)
 	// GameLoop
 	gameloop := PLAYERPLAYING
@@ -97,6 +110,7 @@ func main() {
 				output(l.Render())
 
 				// pause a while?
+				time.Sleep(time.Millisecond * 500)
 				// why not!
 			}
 			// loop through all goalcounters. Make zero if <0. add and if all = 0 PLAYERWINSLEVEL
@@ -124,7 +138,8 @@ func main() {
 			gameloop = PLAYERPLAYING
 		}
 		if gameloop == PLAYERWINSLEVEL {
-			fmt.Println("Well done! You won that level!")
+			fmt.Println("\nWell done! You won that level!\n")
+			time.Sleep(time.Second * 2)
 			Level++
 			if Level > len(glvl) {
 				fmt.Println("Well done! You have won the ENTIRE GAME!!!")

@@ -2,21 +2,22 @@ package main
 
 import "testing"
 import "fmt"
-import "github.com/fatih/color"
+
+//import "github.com/fatih/color"
 
 func TestGrid(t *testing.T) {
-	g := Grid{Width: 2, Height: 2, cells: []Piece{DOTRED, DOTRED, DOTRED, DOTRED}}
-	red := color.New(color.FgRed).SprintFunc()
-	r := fmt.Sprintf("%v", red("●"))
+	g := Grid{Width: 2, Height: 2, Cells: []Piece{DOTRED, DOTRED, DOTRED, DOTRED}}
+	//red := color.New(color.FgRed).SprintFunc()
+	r := "r" //fmt.Sprintf("%v", red("●"))
 	b := "|"
-	a := "⚓"
+	a := "a" // "⚓"
 	expect := b + r + r + b + r + r + b
 	got := fmt.Sprintf("%v", g)
 	if got != expect {
 		t.Error("Grid stringy fail. Expected "+expect+" got ", got)
 	}
 
-	g = Grid{Width: 3, Height: 2, cells: []Piece{DOTRED, DOTANCHOR, DOTRED, DOTRED, DOTANCHOR, DOTRED}}
+	g = Grid{Width: 3, Height: 2, Cells: []Piece{DOTRED, DOTANCHOR, DOTRED, DOTRED, DOTANCHOR, DOTRED}}
 	expect = b + r + a + r + b + r + a + r + b
 	got = fmt.Sprintf("%v", g)
 	if got != expect {
@@ -33,6 +34,12 @@ func TestA1splitter(t *testing.T) {
 	}
 	got1, got2 = a1splitter("b400")
 	expect1 = "b"
+	expect2 = 400
+	if got1 != expect1 || got2 != expect2 {
+		t.Error(fmt.Sprintf("a1splitter fail. Expected %v%v got %v%v\n", expect1, expect2, got1, got2))
+	}
+	got1, got2 = a1splitter("1400")
+	expect1 = "1"
 	expect2 = 400
 	if got1 != expect1 || got2 != expect2 {
 		t.Error(fmt.Sprintf("a1splitter fail. Expected %v%v got %v%v\n", expect1, expect2, got1, got2))
@@ -78,7 +85,7 @@ func TestMakeGridScanner(t *testing.T) {
 
 	// check for no dots
 	expectd := true
-	scan := makeGridScanner(DOTWHITE)
+	scan := grid.makeGridScanner(DOTWHITE, false)
 	_, _, gotd := scan()
 	if gotd != expectd {
 		t.Error(fmt.Sprintf("makeGridScanner fail. Expected done=true but got  %v", gotd))
@@ -88,7 +95,7 @@ func TestMakeGridScanner(t *testing.T) {
 	// 	fmt.Println("----looking for Dotred")
 	got := 0
 	expect := 4
-	scan = makeGridScanner(DOTRED)
+	scan = grid.makeGridScanner(DOTRED, false)
 	for x, y, done := scan(); done == false; x, y, done = scan() {
 
 		if grid.GetGrid(x, y) == DOTRED {
@@ -102,7 +109,7 @@ func TestMakeGridScanner(t *testing.T) {
 	// 	fmt.Println("----looking for Dotyellow")
 	got = 0
 	expect = 1
-	scan = makeGridScanner(DOTYELLOW)
+	scan = grid.makeGridScanner(DOTYELLOW, false)
 	for x, y, done := scan(); done == false; x, y, done = scan() {
 		if grid.GetGrid(x, y) == DOTYELLOW {
 			got++
@@ -116,7 +123,7 @@ func TestMakeGridScanner(t *testing.T) {
 	// 	fmt.Println("----looking for Dotgreen (expecting none)")
 	got = 0
 	expect = 0
-	scan = makeGridScanner(DOTWHITE)
+	scan = grid.makeGridScanner(DOTWHITE, false)
 	for x, y, done := scan(); done == false; x, y, done = scan() {
 		if grid.GetGrid(x, y) == DOTGREEN {
 			got++
@@ -130,6 +137,7 @@ func TestMakeGridScanner(t *testing.T) {
 
 func TestPlayerInputOk(t *testing.T) {
 	l := PrepareLevel(0)
+	debug("%v\n", l)
 	//fmt.Println(l.Render())
 	var move []Move
 	var err bool
