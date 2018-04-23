@@ -98,7 +98,7 @@ func PrepareLevel(level int) (l *LevelState) {
 		}
 
 	}
-	debug("%#v\n", l) // to test
+	debug("%v\n", l) // to test
 
 	// fill in any empty parts of the grid with random picks
 	for k, v := range grid.Cells {
@@ -368,6 +368,7 @@ func (l *LevelState) UpdateGrid(m []Move) bool {
 	// TODO gems
 	// TODO disapearing blocks, triangles, teleports, moves,
 
+	// TODO Shuffle!
 	// is there an allowable move for the player - if not shuffle!
 	// return true
 
