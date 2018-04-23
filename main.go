@@ -1,5 +1,8 @@
 package main
 
+//go:generate stringer -type=Piece
+//go:generate stringer -type=PlayerEvents
+
 import "fmt"
 import "strings"
 
